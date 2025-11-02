@@ -48,11 +48,25 @@ class ChamberHeater:
             self.adjust_timer = None
 
 
-    cmd_CHAMBER_HEAT_WAIT_desc = ('Wait for the build chamber temperature to reach the specified value')
+    cmd_CHAMBER_HEAT_WAIT_desc = ('Wait for the build chamber temperature to reach the desired value')
     
     def cmd_CHAMBER_HEAT_WAIT(self, gcmd):
         self._log(f"CHAMBER_HEAT_WAIT {gcmd.get_command_parameters()}")
+        wait_chamber_temp = gcmd.get_float("TEMP", self.target_chamber_temp, minval = 30.0, maxval = self.target_chamber_temp)
+        gcode = self.printer.lookup_object("gcode")
+        gcode.respond_info(f"Waiting for chamber temp to reach {wait_chamber_temp}")
+        
+        def check(eventtime):
+            return self._get_chamber_temp(eventtime) < wait_chamber_temp
 
+        self.printer.wait_while(check)
+
+    def _get_chamber_temp(self, eventtime):
+        temp, _ = self.temp_sensor.get_temp(eventtime)
+        return round(temp, 2)
+    
+    def _set_heater_temp(self, degrees):
+        self.heater.set_temp(degrees)
 
     def _adjust_temp_timeout(self, eventtime):
         self.inside_timer = True
@@ -70,7 +84,7 @@ class ChamberHeater:
         self.heater = self.printer.lookup_object(f"heater_generic {self.heater_name}")
 
     def _klippy_shutdown(self):
-        lself._log("klippy:shutdown")
+        self._log("klippy:shutdown")
         if self.adjust_timer:
             reactor = self.printer.get_reactor()
             reactor.unregister_timer(self.adjust_timer)
