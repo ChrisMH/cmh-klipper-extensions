@@ -7,7 +7,7 @@ set -e
 
 KLIPPER_PATH="${HOME}/klipper"
 SYSTEMDDIR="/etc/systemd/system"
-KINEMATICS_LIST="ratos-hybrid-corexy"
+KINEMATICS_LIST="ratos_hybrid_corexy"
 SRCDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/ && pwd )"
 
 # Step 1:  Verify Klipper has been installed
