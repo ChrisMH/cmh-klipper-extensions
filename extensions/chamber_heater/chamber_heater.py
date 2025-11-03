@@ -33,6 +33,10 @@ class ChamberHeater:
         reactor = self.printer.get_reactor()
         if self.adjust_timer:
             reactor.unregister_timer(self.adjust_timer)
+
+        if self._get_chamber_temp() < self.target_chamber_temp:
+            self._set_heater_temp(self.max_temp)
+
         self.adjust_timer = reactor.register_timer(self._adjust_temp_timeout, reactor.monotonic() + self.period)
 
 
@@ -66,12 +70,25 @@ class ChamberHeater:
         return round(temp, 2)
     
     def _set_heater_temp(self, degrees):
-        self.heater.set_temp(degrees)
+        if self.heater.target_temp != degrees:
+            self.heater.set_temp(degrees)
 
     def _adjust_temp_timeout(self, eventtime):
-        self.inside_timer = True
-        self._log(f"current chamber temp {self.temp_sensor.get_temp(eventtime)}")
-        self.inside_timer = False
+        current_temp = self.temp_sensor.get_temp(eventtime)
+        self._log(f"_adjust_temp_timeout current={current_temp}")
+
+        difference = self.target_chamber_temp - current_temp
+        if difference > 5:
+            self._set_heater_temp(self.max_temp)
+        elif difference > 2:
+            self._set_heater_temp(self.target_chamber_temp + 20)
+        elif difference > -2:
+            self._set_heater_temp(self.target_chamber_temp)
+        elif difference > -5:
+            self._set_heater_temp(self.target_chamber_temp - 20)
+        else:
+            self._set_heater_temp(0)
+
         return eventtime + self.period
 
     def _log(self, message):
@@ -79,7 +96,6 @@ class ChamberHeater:
 
     def _klippy_ready(self):
         self._log("klippy:ready")
-
         self.temp_sensor = self.printer.lookup_object(f"temperature_sensor {self.temp_sensor_name}")
         self.heater = self.printer.lookup_object(f"heater_generic {self.heater_name}")
 
@@ -90,14 +106,5 @@ class ChamberHeater:
             reactor.unregister_timer(self.adjust_timer)
 
 
-
 def load_config_prefix(config):
     return ChamberHeater(config)
-
-'''
-        def check(eventtime):
-            self.gcode.respond_raw(self._get_temp(eventtime))
-            return heater.check_busy(eventtime)
-
-        self.printer.wait_while(check)
-'''

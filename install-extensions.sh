@@ -7,7 +7,7 @@ set -e
 
 KLIPPER_PATH="${HOME}/klipper"
 SYSTEMDDIR="/etc/systemd/system"
-EXTENSION_LIST="buddy chamber_heater"
+EXTENSION_LIST="chamber_heater"
 SRCDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/ && pwd )"
 
 # Step 1:  Verify Klipper has been installed
@@ -33,7 +33,7 @@ function check_existing() {
 function link_extensions() {
     echo "Linking extensions to Klipper..."
     for extension in ${EXTENSION_LIST}; do
-        ln -sf "${SRCDIR}/${extension}/${extension}.py" "${KLIPPER_PATH}/klippy/extras/${extension}.py"
+        ln -sf "${SRCDIR}/extensions/${extension}/${extension}.py" "${KLIPPER_PATH}/klippy/extras/${extension}.py"
     done
 }
 
