@@ -1,25 +1,23 @@
-# cmh-klipper-extensions
+# cmh-klipper
 
-git clone https://github.com/ChrisMH/cmh-klipper-extensions.git
+git clone https://github.com/ChrisMH/cmh-klipper.git
 
 or
 
-git clone git@github.com:ChrisMH/cmh-klipper-extensions.git
+git clone git@github.com:ChrisMH/cmh-klipper.git
 
 # Install
-./cmh-klipper-extensions/install-extensions.sh
-./cmh-klipper-extensions/install-kinematics.sh
+./cmh-klipper/install.sh
 
 # Uninstall
-./cmh-klipper-extensions/install-extensions.sh -u
-./cmh-klipper-extensions/install-kinematics.sh -u
+./cmh-klipper/install.sh -u
 
 # Update Manager
 
-[update_manager cmh-klipper-extensions]
+[update_manager cmh-klipper]
 type: git_repo
-path: ~/cmh-klipper-extensions
-origin: https://github.com/ChrisMH/cmh-klipper-extensions.git
-install_script: install-extensions.sh
+path: ~/cmh-klipper
+origin: https://github.com/ChrisMH/cmh-klipper.git
+install_script: install.sh
 managed_services: klipper
 
