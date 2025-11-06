@@ -7,7 +7,7 @@ set -e
 
 KLIPPER_PATH="${HOME}/klipper"
 SYSTEMDDIR="/etc/systemd/system"
-EXTENSION_LIST="chamber_heater"
+EXTENSION_LIST="chamber_heat heat_soak"
 SRCDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/ && pwd )"
 
 # Step 1:  Verify Klipper has been installed
@@ -67,12 +67,13 @@ while getopts "k:u" arg; do
 done
 
 verify_ready
-if ! check_existing; then
-    link_extensions
+if [ ${do_uninstall} -eq 1 ]; then
+    unlink_extensions
 else
-    if [ ${do_uninstall} -eq 1 ]; then
-        unlink_extensions
+    if ! check_existing; then
+        link_extensions
     fi
 fi
+
 restart_klipper
 exit 0

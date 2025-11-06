@@ -1,17 +1,13 @@
 import logging
 
-class ChamberHeater:
+class ChamberHeat:
     def __init__(self, config):
-        self.name = config.get_name().split()[1]
-
         self.temp_sensor_name = config.get("sensor")
         self.heater_name = config.get("heater")
         self.period = config.getfloat("period", 5.0)
         self.max_temp = config.getfloat("max_temp")
 
         self.printer = config.get_printer()
-        
-        self._log(f"sensor={self.temp_sensor_name}, heater={self.heater_name}, period={self.period}, max_temp={self.max_temp}")
 
         self.printer.register_event_handler("klippy:ready", self._klippy_ready)
         self.printer.register_event_handler("klippy:shutdown", self._klippy_shutdown)
@@ -20,9 +16,9 @@ class ChamberHeater:
         self.adjust_timer = None
 
         gcode = self.printer.lookup_object("gcode")
-        gcode.register_mux_command("CHAMBER_HEAT_ON", "HEATER", self.name, self.cmd_CHAMBER_HEAT_ON, self.cmd_CHAMBER_HEAT_ON_desc)
-        gcode.register_mux_command("CHAMBER_HEAT_OFF", "HEATER", self.name, self.cmd_CHAMBER_HEAT_OFF, self.cmd_CHAMBER_HEAT_OFF_desc)
-        gcode.register_mux_command("CHAMBER_HEAT_WAIT", "HEATER", self.name, self.cmd_CHAMBER_HEAT_WAIT, self.cmd_CHAMBER_HEAT_WAIT_desc)
+        gcode.register_command("CHAMBER_HEAT_ON", self.cmd_CHAMBER_HEAT_ON, desc=self.cmd_CHAMBER_HEAT_ON_desc)
+        gcode.register_command("CHAMBER_HEAT_OFF", self.cmd_CHAMBER_HEAT_OFF, desc=self.cmd_CHAMBER_HEAT_OFF_desc)
+        gcode.register_command("CHAMBER_HEAT_WAIT", self.cmd_CHAMBER_HEAT_WAIT, desc=self.cmd_CHAMBER_HEAT_WAIT_desc)
 
     cmd_CHAMBER_HEAT_ON_desc = ('Turn the chamber heater on and start the process of heating up the build chamber')
     
@@ -34,8 +30,11 @@ class ChamberHeater:
         if self.adjust_timer:
             reactor.unregister_timer(self.adjust_timer)
 
-        if self._get_chamber_temp() < self.target_chamber_temp:
+        if self._get_chamber_temp(reactor.monotonic()) < self.target_chamber_temp:
+            self.target_temp_reached = False
             self._set_heater_temp(self.max_temp)
+        else:
+            self.target_temp_reached = True
 
         self.adjust_timer = reactor.register_timer(self._adjust_temp_timeout, reactor.monotonic() + self.period)
 
@@ -45,12 +44,12 @@ class ChamberHeater:
     def cmd_CHAMBER_HEAT_OFF(self, gcmd):
         self._log(f"CHAMBER_HEAT_OFF {gcmd.get_command_parameters()}")
         self.target_chamber_temp = None
-
+        self.target_temp_reached = False
+        self._set_heater_temp(0)
         if self.adjust_timer:
             reactor = self.printer.get_reactor()
             reactor.unregister_timer(self.adjust_timer)
             self.adjust_timer = None
-
 
     cmd_CHAMBER_HEAT_WAIT_desc = ('Wait for the build chamber temperature to reach the desired value')
     
@@ -74,28 +73,38 @@ class ChamberHeater:
             self.heater.set_temp(degrees)
 
     def _adjust_temp_timeout(self, eventtime):
-        current_temp = self.temp_sensor.get_temp(eventtime)
-        self._log(f"_adjust_temp_timeout current={current_temp}")
+        current_temp = self._get_chamber_temp(eventtime)
+        if current_temp >= self.target_chamber_temp:
+            self.target_temp_reached = True
 
-        difference = self.target_chamber_temp - current_temp
-        if difference > 5:
-            self._set_heater_temp(self.max_temp)
-        elif difference > 2:
-            self._set_heater_temp(self.target_chamber_temp + 20)
-        elif difference > -2:
-            self._set_heater_temp(self.target_chamber_temp)
-        elif difference > -5:
-            self._set_heater_temp(self.target_chamber_temp - 20)
-        else:
-            self._set_heater_temp(0)
+        difference = round(current_temp - self.target_chamber_temp, 2)
+        
+        # If the target temp has not been reached, keep the heater on full-blast
+        set_temp = self.max_temp
+        
+        if self.target_temp_reached:
+            if difference <= -2:
+                set_temp = self.max_temp
+            elif difference <= -0.5:
+                set_temp = self.target_chamber_temp + (self.max_temp - self.target_chamber_temp) / 2
+            elif difference <= 0.5:
+                set_temp = self.target_chamber_temp
+            elif difference <= 2:
+                set_temp = self.target_chamber_temp - 10
+            else:
+                set_temp = 0
 
+        self._set_heater_temp(set_temp)
+        self._log(f"_adjust_temp_timout: reached={self.target_temp_reached}, current={current_temp}, target={self.target_chamber_temp}, difference={difference}, set={set_temp}")
+     
         return eventtime + self.period
 
     def _log(self, message):
-        logging.info(f"[chamber_heater {self.name}] {message}")
+        logging.info(f"[chamber_heat] {message}")
 
     def _klippy_ready(self):
         self._log("klippy:ready")
+        self._log(f"sensor={self.temp_sensor_name}, heater={self.heater_name}, period={self.period}, max_temp={self.max_temp}")
         self.temp_sensor = self.printer.lookup_object(f"temperature_sensor {self.temp_sensor_name}")
         self.heater = self.printer.lookup_object(f"heater_generic {self.heater_name}")
 
@@ -106,5 +115,5 @@ class ChamberHeater:
             reactor.unregister_timer(self.adjust_timer)
 
 
-def load_config_prefix(config):
-    return ChamberHeater(config)
+def load_config(config):
+    return ChamberHeat(config)
