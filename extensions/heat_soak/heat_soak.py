@@ -18,6 +18,9 @@ class HeatSoak:
         self.baseline_extruder_temp = None
         self.baseline_chamber_temp = None
 
+        self.wait_sec = None
+        self.wait_start_eventtime = None
+
         gcode = self.printer.lookup_object("gcode")
         gcode.register_command("HEAT_SOAK_BASELINE", self.cmd_HEAT_SOAK_BASELINE, desc=self.cmd_HEAT_SOAK_BASELINE_desc)
         gcode.register_command("HEAT_SOAK_WAIT", self.cmd_HEAT_SOAK_WAIT, desc=self.cmd_HEAT_SOAK_WAIT_desc)
@@ -80,26 +83,26 @@ class HeatSoak:
             diff = wait_temp - self.baseline_chamber_temp
             ms_per_degree = 10000.0
 
-        sec_wait = (diff * ms_per_degree) / 1000.0
-        if sec_wait <= 0.0:
+        wait_sec = (diff * ms_per_degree) / 1000.0
+        if wait_sec <= 0.0:
             gcode.respond_info(f"soak time is <= 0, no heat soak necessary")
             return
+        self.wait_sec = wait_sec
 
-        self.printer.state_message = f"Heat soaking {wait_for} for {round(sec_wait, 0)}s..."
+        #self.printer.state_message = f"Heat soaking {wait_for} for {round(self.wait_sec)}s..."
 
-        ending_eventtime = 0
         def check(eventtime):
-            global ending_eventtime
-            if ending_eventtime == 0:
-                ending_eventtime = eventtime
-                self._log(f"check: set ending_eventtime = {ending_eventtime}")
+            if not self.wait_start_eventtime:
+                self.wait_start_eventtime = eventtime
                 return True
-            sec_left = round(ending_eventtime - eventtime)
+            sec_left = round(self.wait_sec - (eventtime - self.wait_start_eventtime))
             if sec_left % 10 == 0:
                 self._log(f"heat soak {sec_left}")
             return sec_left > 0
 
         self.printer.wait_while(check)
+        self.wait_sec = None
+        self.wait_start_eventtime = None
 
     # cmd_CHAMBER_HEAT_WAIT_desc = ('Wait for the build chamber temperature to reach the desired value')
     
