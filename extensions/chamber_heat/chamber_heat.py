@@ -86,7 +86,7 @@ class ChamberHeat:
             if difference <= -2:
                 set_temp = self.max_temp
             elif difference <= -0.5:
-                set_temp = self.target_chamber_temp + (self.max_temp - self.target_chamber_temp) / 2
+                set_temp = self.target_chamber_temp + 0.66 * (self.max_temp - self.target_chamber_temp)
             elif difference <= 0.5:
                 set_temp = self.target_chamber_temp
             elif difference <= 2:
