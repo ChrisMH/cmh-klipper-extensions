@@ -52,7 +52,7 @@ class HeatSoak:
         # self.adjust_timer = reactor.register_timer(self._adjust_temp_timeout, reactor.monotonic() + self.period)
 
 
-    cmd_HEAT_SOAK_WAIT_desc = ('Wait for heat soak to complete. FOR=<bed|extruder|chamber> TEMP=<target>')
+    cmd_HEAT_SOAK_WAIT_desc = ('Wait for heat soak to complete. FOR=<bed|extruder|chamber> TEMP=<target> START_TEMP=<optional starting temp>')
     
     def cmd_HEAT_SOAK_WAIT(self, gcmd):
         self._log(f"HEAT_SOAK_WAIT {gcmd.get_command_parameters()}")
@@ -74,13 +74,16 @@ class HeatSoak:
         diff = 0
         ms_per_degree = 0.0
         if wait_for == 'bed':
-            diff = wait_temp - self.baseline_bed_temp
+            start_temp = gcmd.get_float("START_TEMP", self.baseline_bed_temp)
+            diff = wait_temp - start_temp
             ms_per_degree = 16000.0
         elif wait_for == 'extruder':
-            diff = wait_temp - self.baseline_extruder_temp
+            start_temp = gcmd.get_float("START_TEMP", self.baseline_extruder_temp)
+            diff = wait_temp - start_temp
             ms_per_degree = 500.0
         elif wait_for == 'chamber':
-            diff = wait_temp - self.baseline_chamber_temp
+            start_temp = gcmd.get_float("START_TEMP", self.baseline_chamber_temp)
+            diff = wait_temp - start_temp
             ms_per_degree = 10000.0
 
         wait_sec = (diff * ms_per_degree) / 1000.0
