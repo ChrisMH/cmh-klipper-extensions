@@ -78,7 +78,9 @@ class HeatSoak:
             return
         self.wait_sec = wait_sec
 
+        original_message = None
         if self.display_status:
+            original_message = self.display_status.message
             self.display_status.message = f"Heat soaking {wait_for}: {round(self.wait_sec)}s remaining..."
 
         def check(eventtime):
@@ -93,6 +95,8 @@ class HeatSoak:
             return sec_left > 0
 
         self.printer.wait_while(check)
+        if self.display_status:
+            self.display_status.message = original_message
         self.wait_sec = None
         self.wait_start_eventtime = None
 
